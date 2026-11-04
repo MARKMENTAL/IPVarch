@@ -197,6 +197,30 @@ Notes:
   only third-party dependency is vendored and there is nothing to
   install.
 
+### Code style
+
+I write IPVarch in what I'll call a Stroustrup hybrid: an opening brace
+always stays inline with the statement it belongs to (function
+definitions included), while `else` always drops to its own line after
+the closing brace of the block it follows.
+
+```c
+static int parse_ipv4(const char *s, byte out[4]) {
+    if (ok) {
+        return 1;
+    }
+    else {
+        return 0;
+    }
+}
+```
+
+A floating `{` on its own line wastes vertical space, and a jammed
+`} else {` buries the branch in the middle of a line — this way I keep
+the density and still see every branch entry running down the left
+margin. It is formatting only, so no behaviour rests on it, but please
+keep the convention when patching.
+
 ## License
 
 IPVarch — the program and its test suite (`ipvarch.c`, `ipvtbl.c`,

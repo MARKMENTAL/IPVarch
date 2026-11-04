@@ -19,18 +19,15 @@ static int g_state = -1;             /* -1 = not opened; else DB_* state  */
 static char g_path[DB_PATH_SZ] = "";
 static char g_err[256] = "";
 
-const char *db_last_error(void)
-{
+const char *db_last_error(void) {
     return g_err[0] != '\0' ? g_err : "unknown database error";
 }
 
-const char *db_path(void)
-{
+const char *db_path(void) {
     return g_path;
 }
 
-static void record_err(const char *context)
-{
+static void record_err(const char *context) {
     const char *msg = (g_db != NULL) ? sqlite3_errmsg(g_db) : NULL;
     if (msg != NULL)
         sqlite3_snprintf((int)sizeof g_err, g_err, "%s: %s", context, msg);
@@ -39,8 +36,7 @@ static void record_err(const char *context)
     return;
 }
 
-static void resolve_db_path(char *path, int editable)
-{
+static void resolve_db_path(char *path, int editable) {
     const char *env, *base;
     char dir[512];
 
@@ -52,7 +48,8 @@ static void resolve_db_path(char *path, int editable)
     base = getenv("XDG_CONFIG_HOME");
     if (base != NULL && base[0] != '\0') {
         sqlite3_snprintf((int)sizeof dir, dir, "%s/ipvarch", base);
-    } else {
+    }
+    else {
         base = getenv("HOME");
         if (base == NULL || base[0] == '\0') {
             sqlite3_snprintf(DB_PATH_SZ, path, "networks.db");
@@ -66,8 +63,7 @@ static void resolve_db_path(char *path, int editable)
     return;
 }
 
-static int table_exists(void)
-{
+static int table_exists(void) {
     sqlite3_stmt *st = NULL;
     int exists = 0;
 
@@ -86,8 +82,7 @@ static int table_exists(void)
 /* Release the SQLite connection (registered via atexit in db_do_open;
  * runs on both normal returns and die()/exit() paths so sanitizers
  * see a clean shutdown). */
-void db_close(void)
-{
+void db_close(void) {
     if (g_db != NULL) {
         sqlite3_close(g_db);
         g_db = NULL;
@@ -96,8 +91,7 @@ void db_close(void)
     sqlite3_shutdown();              /* free SQLite's one-time globals */
 }
 
-static int db_do_open(int editable)
-{
+static int db_do_open(int editable) {
     static int close_registered = 0;
     int flags, exists;
 
@@ -157,14 +151,12 @@ static int db_do_open(int editable)
     return g_state;
 }
 
-int db_init(int editable)
-{
+int db_init(int editable) {
     return db_do_open(editable);
 }
 
 /* 32-bit mask math (host order). */
-static unsigned long mask_of(int prefix)
-{
+static unsigned long mask_of(int prefix) {
     if (prefix >= 32)
         return 0xFFFFFFFFUL;
     if (prefix <= 0)
@@ -172,14 +164,12 @@ static unsigned long mask_of(int prefix)
     return 0xFFFFFFFFUL << (32 - prefix);
 }
 
-static unsigned long range_end(unsigned long net, int prefix)
-{
+static unsigned long range_end(unsigned long net, int prefix) {
     return net | (0xFFFFFFFFUL ^ mask_of(prefix));
 }
 
 static int interval_overlaps(unsigned long s1, unsigned long e1,
-                             unsigned long s2, unsigned long e2)
-{
+                             unsigned long s2, unsigned long e2) {
     return (s2 <= e1 && s1 <= e2) ? 1 : 0;
 }
 
@@ -189,8 +179,7 @@ static int interval_overlaps(unsigned long s1, unsigned long e1,
 static int scan_used(unsigned long start, unsigned long end,
                      char *hit_cidr, int hit_cidr_sz,
                      char *hit_label, int hit_label_sz,
-                     int *out_conflicts, int *out_extra)
-{
+                     int *out_conflicts, int *out_extra) {
     sqlite3_stmt *st = NULL;
     unsigned long hstart, hend;
     const unsigned char *text;
@@ -252,8 +241,7 @@ static int scan_used(unsigned long start, unsigned long end,
 }
 
 int db_add_network(unsigned long net, int prefix, const char *cidr,
-                   const char *label)
-{
+                   const char *label) {
     sqlite3_stmt *st = NULL;
     unsigned long start, end;
     int rc;
@@ -291,8 +279,7 @@ int db_add_network(unsigned long net, int prefix, const char *cidr,
     return DB_IO;
 }
 
-int db_get_label(const char *cidr, char *buf, int bufsz)
-{
+int db_get_label(const char *cidr, char *buf, int bufsz) {
     sqlite3_stmt *st = NULL;
     const unsigned char *text;
     int rc;
@@ -327,8 +314,7 @@ int db_get_label(const char *cidr, char *buf, int bufsz)
     return DB_IO;
 }
 
-int db_forget_network(const char *cidr, char *label_out, int label_out_sz)
-{
+int db_forget_network(const char *cidr, char *label_out, int label_out_sz) {
     sqlite3_stmt *st = NULL;
     int rc;
 
@@ -360,8 +346,7 @@ int db_forget_network(const char *cidr, char *label_out, int label_out_sz)
     return DB_OK;
 }
 
-int db_count(int *out)
-{
+int db_count(int *out) {
     sqlite3_stmt *st = NULL;
     int n = 0;
 
@@ -389,8 +374,7 @@ int db_count(int *out)
 }
 
 /* 1 = intersecting network registered, 0 = free, DB_IO = error. */
-int db_overlaps_any(unsigned long start, unsigned long end)
-{
+int db_overlaps_any(unsigned long start, unsigned long end) {
     int conflicts = 0;
 
     if (scan_used(start, end, NULL, 0, NULL, 0, &conflicts, NULL) != DB_OK)
@@ -399,8 +383,7 @@ int db_overlaps_any(unsigned long start, unsigned long end)
 }
 
 int db_used_by_plan(unsigned long start, unsigned long end,
-                    char *buf, int bufsz)
-{
+                    char *buf, int bufsz) {
     char cidr[32], label[112];
     int found = 0, extra = 0, len;
 
@@ -420,8 +403,7 @@ int db_used_by_plan(unsigned long start, unsigned long end,
     return 1;
 }
 
-int db_list_networks(db_list_fn cb)
-{
+int db_list_networks(db_list_fn cb) {
     sqlite3_stmt *st = NULL;
     const unsigned char *c, *l, *t;
     int rc;

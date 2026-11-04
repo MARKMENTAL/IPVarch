@@ -17,8 +17,7 @@
 #define BOX_RJ "\xe2\x94\xa4"   /* right join   ┤ */
 #define BOX_CJ "\xe2\x94\xbc"   /* centre join  ┼ */
 
-int dwidth(const char *s)
-{
+int dwidth(const char *s) {
     int w = 0;
     while (*s != '\0') {
         if ((((unsigned char)*s) & 0xC0) != 0x80)
@@ -28,16 +27,14 @@ int dwidth(const char *s)
     return w;
 }
 
-static void dashes(int n)
-{
+static void dashes(int n) {
     while (n-- > 0)
         fputs(BOX_H, stdout);
     return;
 }
 
 /* Emit a cell of exactly 'w' display columns: space + text + right pad. */
-static void padcell(const char *s, int w)
-{
+static void padcell(const char *s, int w) {
     int d = dwidth(s) + 1;
     putchar(' ');
     fputs(s, stdout);
@@ -49,8 +46,7 @@ static void padcell(const char *s, int w)
 }
 
 /* Centre text within 'w' display columns. */
-static void centercell(const char *s, int w)
-{
+static void centercell(const char *s, int w) {
     int d = dwidth(s) + 1;
     int l = (w - d) / 2;
     int r = w - d - l;
@@ -63,8 +59,7 @@ static void centercell(const char *s, int w)
     return;
 }
 
-void print_table(const char *title, const char *rows[][2], int nrows)
-{
+void print_table(const char *title, const char *rows[][2], int nrows) {
     int w1 = 0, w2 = 0, tw, i;
 
     for (i = 0; i < nrows; i++) {
@@ -96,8 +91,7 @@ void print_table(const char *title, const char *rows[][2], int nrows)
     return;
 }
 
-void print_table3(const char *title, const char *rows[][3], int nrows)
-{
+void print_table3(const char *title, const char *rows[][3], int nrows) {
     int w1 = 0, w2 = 0, w3 = 0, tw, i;
 
     for (i = 0; i < nrows; i++) {

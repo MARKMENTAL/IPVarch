@@ -67,17 +67,27 @@ def v_table_layout(out):
 
 
 def v_table3_layout(out):
-    """3-column list table: title kept plus rows must carry exactly 4 bars."""
-    have_row = False
+    """3-column list table: exactly one centred title row (2 bars) plus
+    rows carrying exactly 4 bars.
+
+    The title row is found by its shape (a single centred cell, so two
+    bars) rather than by its wording, so renaming the header cannot
+    break this check again.
+    """
+    titles = rows = 0
     for line in out.splitlines():
         if not line.startswith("│"):
             continue
-        if "Used Networks Database" in line:
-            continue
-        if line.count("│") != 4:
+        bars = line.count("│")
+        if bars == 2:
+            titles += 1
+        elif bars == 4:
+            rows += 1
+        else:
             return False, "malformed row: %r" % line
-        have_row = True
-    if not have_row:
+    if titles != 1:
+        return False, "expected one title row, found %d" % titles
+    if rows < 1:
         return False, "no table rows"
     return True, ""
 

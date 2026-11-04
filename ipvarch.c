@@ -31,8 +31,7 @@ typedef const char *Row[2];
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-static void die(const char *fmt, ...)
-{
+static void die(const char *fmt, ...) {
     va_list ap;
     fprintf(stderr, "ipvarch: error: ");
     va_start(ap, fmt);
@@ -42,8 +41,7 @@ static void die(const char *fmt, ...)
     exit(1);
 }
 
-static void usage(void)
-{
+static void usage(void) {
     printf("IPVarch - Internet Protocol Version Architect\n\n");
     printf("Usage:\n");
     printf("  ipvarch <address>                          inspect an IPv4/IPv6 address\n");
@@ -68,8 +66,7 @@ static void usage(void)
 /* Parsing                                                             */
 /* ------------------------------------------------------------------ */
 
-static int parse_ipv4(const char *s, byte out[4])
-{
+static int parse_ipv4(const char *s, byte out[4]) {
     const char *p = s;
     int i;
 
@@ -96,8 +93,7 @@ static int parse_ipv4(const char *s, byte out[4])
     return 1;
 }
 
-static int hexval(int c)
-{
+static int hexval(int c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
@@ -107,8 +103,7 @@ static int hexval(int c)
 /* Parse a colon separated piece list such as "ffff:0:192.168.1.1".
  * The final token may be an embedded IPv4 address (two groups).
  * Returns count via *cnt and 1 on success. */
-static int parse_piece(const char *piece, unsigned short *gr, int *cnt)
-{
+static int parse_piece(const char *piece, unsigned short *gr, int *cnt) {
     char buf[48];
     byte v4[4];
     const char *p;
@@ -138,7 +133,8 @@ static int parse_piece(const char *piece, unsigned short *gr, int *cnt)
                 return 0;
             gr[n++] = (unsigned short)((v4[0] << 8) | v4[1]);
             gr[n++] = (unsigned short)((v4[2] << 8) | v4[3]);
-        } else {
+        }
+        else {
             int len = (int)(p - tok);
             int j, val = 0;
             if (len < 1 || len > 4)
@@ -167,8 +163,7 @@ static int parse_piece(const char *piece, unsigned short *gr, int *cnt)
 
 /* Parse an IPv6 address (RFC 4291 text form, compressed "::" allowed,
  * embedded IPv4 in the tail allowed) into 16 bytes. */
-static int parse_ipv6(const char *s, byte out[16])
-{
+static int parse_ipv6(const char *s, byte out[16]) {
     char buf[80];
     char *dd, *head, *tail;
     unsigned short gr[16];
@@ -188,7 +183,8 @@ static int parse_ipv6(const char *s, byte out[16])
         /* An embedded IPv4 is only valid in the tail piece. */
         if (strchr(head, '.') != NULL && strchr(head, ':') == NULL)
             return 0;
-    } else {
+    }
+    else {
         head = buf;
         tail = NULL;
     }
@@ -214,7 +210,8 @@ static int parse_ipv6(const char *s, byte out[16])
             out[2 * k]     = (byte)(gr[nh + i] >> 8);
             out[2 * k + 1] = (byte)(gr[nh + i] & 0xFF);
         }
-    } else {
+    }
+    else {
         if (total != 8)
             return 0;
         for (i = 0; i < 8; i++) {
@@ -229,16 +226,14 @@ static int parse_ipv6(const char *s, byte out[16])
 /* Formatting                                                          */
 /* ------------------------------------------------------------------ */
 
-static void fmt_v4(char *dst, const byte a[4])
-{
+static void fmt_v4(char *dst, const byte a[4]) {
     sprintf(dst, "%u.%u.%u.%u",
             (unsigned)a[0], (unsigned)a[1], (unsigned)a[2], (unsigned)a[3]);
     return;
 }
 
 /* Compressed RFC 5952 style text form. */
-static void fmt_v6(char *dst, const byte a[16])
-{
+static void fmt_v6(char *dst, const byte a[16]) {
     unsigned short g[8];
     int i, zs = -1, zl = 0, bs = -1, bl = 0, first = 1, suppress = 0;
     char *p = dst;
@@ -255,7 +250,8 @@ static void fmt_v6(char *dst, const byte a[16])
                 bl = zl;
                 bs = zs;
             }
-        } else {
+        }
+        else {
             zl = 0;
         }
     }
@@ -294,24 +290,28 @@ static void fmt_v6(char *dst, const byte a[16])
 /* Classification (rules per ipaddrinfo.html)                          */
 /* ------------------------------------------------------------------ */
 
-static void classify_v4(const byte a[4], const char **cls, const char **scope)
-{
+static void classify_v4(const byte a[4], const char **cls, const char **scope) {
     if (a[0] == 0) {
         *cls = "0 (reserved)";
         *scope = "Reserved (this network)";
-    } else if (a[0] < 128) {
+    }
+    else if (a[0] < 128) {
         *cls = "A";
         *scope = "Public";
-    } else if (a[0] < 192) {
+    }
+    else if (a[0] < 192) {
         *cls = "B";
         *scope = "Public";
-    } else if (a[0] < 224) {
+    }
+    else if (a[0] < 224) {
         *cls = "C";
         *scope = "Public";
-    } else if (a[0] < 240) {
+    }
+    else if (a[0] < 240) {
         *cls = "D";
         *scope = "Multicast";
-    } else {
+    }
+    else {
         *cls = "E";
         *scope = "Reserved";
     }
@@ -339,8 +339,7 @@ static void classify_v4(const byte a[4], const char **cls, const char **scope)
     return;
 }
 
-static void classify_v6(const byte a[16], const char **scope)
-{
+static void classify_v6(const byte a[16], const char **scope) {
     int i;
 
     for (i = 0; i < 16; i++) {
@@ -388,14 +387,12 @@ static void classify_v6(const byte a[16], const char **scope)
 /* IPv4 network math                                                   */
 /* ------------------------------------------------------------------ */
 
-static unsigned long v4_to_u32(const byte a[4])
-{
+static unsigned long v4_to_u32(const byte a[4]) {
     return ((unsigned long)a[0] << 24) | ((unsigned long)a[1] << 16) |
            ((unsigned long)a[2] << 8) | (unsigned long)a[3];
 }
 
-static void u32_to_v4(unsigned long u, byte out[4])
-{
+static void u32_to_v4(unsigned long u, byte out[4]) {
     out[0] = (byte)((u >> 24) & 0xFF);
     out[1] = (byte)((u >> 16) & 0xFF);
     out[2] = (byte)((u >>  8) & 0xFF);
@@ -403,8 +400,7 @@ static void u32_to_v4(unsigned long u, byte out[4])
     return;
 }
 
-static void print_plan(unsigned long net, int prefix, const char *usedby)
-{
+static void print_plan(unsigned long net, int prefix, const char *usedby) {
     unsigned long mask, bc, cnt, firstu, lastu;
     byte a[4], m4[4], b4[4], lo4[4], hi4[4];
     char tmp1[24], tmp2[24];
@@ -434,7 +430,8 @@ static void print_plan(unsigned long net, int prefix, const char *usedby)
         strcpy(gb, "n/a (single host)");
         strcpy(db, "n/a (single host)");
         strcpy(pb, "disabled (single-host network)");
-    } else {
+    }
+    else {
         firstu = net + 1;
         lastu  = bc - 1;
         cnt    = (1ul << (32 - prefix)) - 2;
@@ -484,8 +481,7 @@ static void print_plan(unsigned long net, int prefix, const char *usedby)
 /* Random network generation                                           */
 /* ------------------------------------------------------------------ */
 
-static int is_ok_public(const byte a[4])
-{
+static int is_ok_public(const byte a[4]) {
     if (a[0] == 0 || a[0] == 10 || a[0] == 127)
         return 0;
     if (a[0] == 172 && a[1] >= 16 && a[1] <= 31)
@@ -509,8 +505,7 @@ static int is_ok_public(const byte a[4])
     return 1;
 }
 
-static void random_network(int prefix, int wantprivate, byte out[4])
-{
+static void random_network(int prefix, int wantprivate, byte out[4]) {
     int tries, r;
     byte a[4];
 
@@ -520,20 +515,25 @@ static void random_network(int prefix, int wantprivate, byte out[4])
             if (prefix == 8) {
                 /* Only one valid private /8 exists: 10.0.0.0/8 */
                 a[0] = 10; a[1] = 0; a[2] = 0; a[3] = 0;
-            } else if (prefix == 16) {
+            }
+            else if (prefix == 16) {
                 if (r % 2) {
                     a[0] = 192; a[1] = 168; a[2] = rand() % 256;
-                } else {
+                }
+                else {
                     a[0] = 172; a[1] = 16 + rand() % 16; a[2] = rand() % 256;
                 }
                 a[3] = 0;
-            } else {
+            }
+            else {
                 r = rand() % 8;
                 if (r < 4) {
                     a[0] = 10; a[1] = rand() % 256; a[2] = rand() % 256;
-                } else if (r < 6) {
+                }
+                else if (r < 6) {
                     a[0] = 172; a[1] = 16 + rand() % 16; a[2] = rand() % 256;
-                } else {
+                }
+                else {
                     a[0] = 192; a[1] = 168; a[2] = rand() % 256;
                 }
                 if (prefix == 24)
@@ -541,7 +541,8 @@ static void random_network(int prefix, int wantprivate, byte out[4])
                 else
                     a[3] = 1 + rand() % 254;
             }
-        } else {
+        }
+        else {
             a[0] = (rand() % 223) + 1;    /* avoids class D/E and 0 */
             if (a[0] == 10 || a[0] == 127)
                 continue;
@@ -566,8 +567,7 @@ static void random_network(int prefix, int wantprivate, byte out[4])
 /* Modes                                                               */
 /* ------------------------------------------------------------------ */
 
-static void mode_info(const char *arg)
-{
+static void mode_info(const char *arg) {
     byte a[16];
     const char *cls = "", *scope = "";
     char nb[64], gb[96], ob[96];
@@ -600,7 +600,8 @@ static void mode_info(const char *arg)
         for (i = 0; i < 16; i++)
             q += sprintf(q, "%s%u", i > 0 ? ", " : "", (unsigned)a[i]);
         printf("Octets:  %s\n", ob);
-    } else {
+    }
+    else {
         byte a4[4];
         if (!parse_ipv4(arg, a4))
             die("invalid IPv4 or IPv6 address: %s", arg);
@@ -621,8 +622,7 @@ static void mode_info(const char *arg)
 }
 
 /* 32-bit network mask for the four supported plan prefixes. */
-static unsigned long mask_of_prefix(int prefix)
-{
+static unsigned long mask_of_prefix(int prefix) {
     if (prefix == 0)  return 0UL;
     if (prefix <= 8)  return 0xFF000000UL;
     if (prefix <= 16) return 0xFFFF0000UL;
@@ -633,8 +633,7 @@ static unsigned long mask_of_prefix(int prefix)
 /* Parse "<ipv4>/<0-32>" and canonicalize; dies on error, including
  * host bits set (the message names the canonical network address). */
 static void parse_network_arg(const char *arg, unsigned long *net,
-                              int *prefix, int plan_only)
-{
+                              int *prefix, int plan_only) {
     char buf[80];
     char *slash;
     byte a[4];
@@ -677,8 +676,7 @@ static void parse_network_arg(const char *arg, unsigned long *net,
 }
 
 /* Canonical "<ipv4>/<prefix>" rendering of a parsed network. */
-static void canonical_cidr(unsigned long net, int prefix, char *dst)
-{
+static void canonical_cidr(unsigned long net, int prefix, char *dst) {
     byte a[4];
 
     u32_to_v4(net, a);
@@ -686,8 +684,7 @@ static void canonical_cidr(unsigned long net, int prefix, char *dst)
     sprintf(dst + strlen(dst), "/%d", prefix);
 }
 
-static void mode_plan(const char *arg)
-{
+static void mode_plan(const char *arg) {
     char used[200];
     unsigned long net;
     int prefix;
@@ -715,8 +712,7 @@ static void mode_plan(const char *arg)
     return;
 }
 
-static void mode_random(const char *scope_s, const char *prefix_s)
-{
+static void mode_random(const char *scope_s, const char *prefix_s) {
     char lc[16];
     const char *p;
     byte net[4];
@@ -785,8 +781,7 @@ static int g_lrows_overflow = 0;
 static int g_list_total = 0;
 
 static void list_row_cb(const char *cidr, const char *label,
-                        const char *created)
-{
+                        const char *created) {
     if (g_lrows_n >= LIST_MAX) {
         g_lrows_overflow = 1;
         return;
@@ -797,14 +792,12 @@ static void list_row_cb(const char *cidr, const char *label,
     g_lrows_n++;
 }
 
-static void die_db(const char *context)
-{
+static void die_db(const char *context) {
     die("%s: %s (database: %s)", context, db_last_error(),
         (db_path()[0] != '\0') ? db_path() : "(unresolved)");
 }
 
-static void mode_use_network(const char *cidr, const char *label)
-{
+static void mode_use_network(const char *cidr, const char *label) {
     unsigned long net;
     int prefix, rc;
     char canon[24];
@@ -836,8 +829,7 @@ static void mode_use_network(const char *cidr, const char *label)
     printf("Registered %s as \"%s\" in %s\n", canon, label, db_path());
 }
 
-static void mode_forget_network(const char *cidr)
-{
+static void mode_forget_network(const char *cidr) {
     unsigned long net;
     int prefix, rc;
     char canon[24], existing[80];
@@ -858,8 +850,7 @@ static void mode_forget_network(const char *cidr)
     printf("Removed %s (was \"%s\")\n", canon, existing);
 }
 
-static void mode_list_networks(void)
-{
+static void mode_list_networks(void) {
     const char *rows[LIST_MAX + 1][3];
     int i, rc;
 
@@ -891,8 +882,7 @@ static void mode_list_networks(void)
     return;
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     if (argc >= 2 &&
         (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0 ||
          strcmp(argv[1], "help") == 0)) {
