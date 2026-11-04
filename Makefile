@@ -1,15 +1,31 @@
 # IPVarch - Internet Protocol Version Architect
-# Primary compiler is tcc (Tiny C Compiler); the commented-out $(shell ...)
-# line below restores an automatic tcc-then-gcc fallback if you want it.
+# The compiler is auto-detected: tcc first, then gcc, then the POSIX name cc.
+# command -v prints an absolute path, so the recipes call the compiler by full
+# path; force one with 'make CC=gcc'.
 # The vendored SQLite amalgamation (vendor/sqlite3.[ch], downloaded from
 # https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip) is compiled
-# separately with $(VCC) (tcc today; gcc works too).  'make check' and the
-# sanitizer runner build their own vendor objects, since they need gcc/clang.
+# with $(VCC); 'make check' and the sanitizer runner build their own vendor
+# objects, since those need gcc/clang modes.
 
-#CC := $(shell command -v tcc 2>/dev/null || command -v gcc 2>/dev/null || echo cc)
-CC := tcc
-#VCC := gcc
-VCC := tcc
+CC := $(shell command -v tcc 2>/dev/null || command -v gcc 2>/dev/null || echo cc)
+# Deliberately the same compiler as CC: a tcc-built object references libtcc1
+# runtime helpers (__va_arg, __floatundidf) that gcc cannot resolve, so the
+# amalgamation has to be built by whatever is going to link it.
+VCC := $(CC)
+
+# Tagged with the compiler that built it, because auto-detection means the
+# compiler can change without the Makefile changing: vendor/sqlite3.tcc.o and
+# vendor/sqlite3.gcc.o then sit side by side and each link picks its own,
+# instead of reusing a stale object compiled by the other toolchain.
+# Assumes CC and VCC are single words.  Note the *binary* is not tagged: if
+# both objects already exist, switching compilers back does not relink an
+# up-to-date ipvarch, so 'make clean' is the answer when you care which
+# compiler produced the executable.
+SQLITE_OBJ := vendor/sqlite3.$(notdir $(VCC)).o
+
+ifneq ($(notdir $(CC)),$(notdir $(VCC)))
+$(warning VCC=$(VCC) differs from CC=$(CC): gcc cannot link a tcc-built object)
+endif
 
 # Embedder configuration for the vendored amalgamation, chosen so the link
 # needs no libraries at all: SQLITE_OMIT_LOAD_EXTENSION drops dlopen/dlclose,
@@ -33,9 +49,9 @@ TARGET := ipvarch
 
 all: $(TARGET)
 
-$(TARGET): ipvarch.c ipvarch_db.c ipvtbl.c ipvarch_db.h ipvtbl.h schema_sql.c vendor/sqlite3.o Makefile
+$(TARGET): ipvarch.c ipvarch_db.c ipvtbl.c ipvarch_db.h ipvtbl.h schema_sql.c $(SQLITE_OBJ) Makefile
 	$(CC) $(CFLAGS) -o $@ ipvarch.c ipvarch_db.c ipvtbl.c schema_sql.c \
-		vendor/sqlite3.o
+		$(SQLITE_OBJ)
 
 # Schema DDL compiled into the binary (single source of truth is
 # schema/used_networks.sql; regenerate after editing it, e.g. with make).
@@ -62,16 +78,17 @@ schema_sql.c: schema/used_networks.sql Makefile
 	  printf ' 0\n};\n'; } > $@.tmp && grep -q 'CREATE TABLE' $@.tmp \
 	  && $(CC) -x c -c $@.tmp -o /dev/null && mv -f $@.tmp $@
 
-# Depends on the Makefile as well: a changed SQL_DEFS/$(VCC) must rebuild the
-# object, otherwise a stale one compiled with the old flags survives (the same
-# trap schema_sql.c documents above).
-vendor/sqlite3.o: vendor/sqlite3.c vendor/sqlite3.h Makefile
+# Depends on the Makefile too, so a changed SQL_DEFS rebuilds the object rather
+# than leaving one compiled with the old flags (the same trap schema_sql.c
+# documents above).  A changed *compiler* needs no such care: the object name
+# carries the compiler, so a switch simply compiles its own file.
+$(SQLITE_OBJ): vendor/sqlite3.c vendor/sqlite3.h Makefile
 	$(VCC) -O1 $(SQL_DEFS) -c vendor/sqlite3.c -o $@
 
 # Strict C89 conformance build of our sources (needs gcc; tcc has no such mode).
-# The vendor object is rebuilt with gcc here: the default tcc-built
-# vendor/sqlite3.o relies on tcc's libtcc1 runtime helpers, which gcc
-# cannot link, so check compiles its own copy (this is why check always
+# The vendor object is rebuilt with gcc here: a tcc-built
+# vendor/sqlite3.$(notdir $(VCC)).o relies on tcc's libtcc1 runtime helpers,
+# which gcc cannot link, so check compiles its own copy (this is why check always
 # rebuilds it and clean removes the cached object).  No -l flags: see
 # SQL_DEFS above.
 check: $(TARGET) schema_sql.c
@@ -99,7 +116,10 @@ test: $(TARGET)
 test-sanitize: $(TARGET)
 	python3 tests/runner.py --bin ./$(TARGET) --sanitize
 
+# The untagged vendor/sqlite3.o is listed alongside the glob so the artifact
+# left behind by the pre-tagging naming is swept too; the glob itself covers
+# every vendor/sqlite3.<compiler>.o.
 clean:
 	rm -f $(TARGET) /tmp/ipvarchtests/ipvarch-asan /tmp/ipvarchtests/ipvarch-check
 	rm -f schema_sql.c schema_sql.c.tmp /tmp/ipvarchtests/sqlite3-check.o
-	rm -f vendor/sqlite3.o
+	rm -f vendor/sqlite3.o vendor/sqlite3*.o

@@ -162,7 +162,8 @@ Design notes:
 ## Testing (Make + python3, stdlib only)
 
 ```sh
-make              # build (tcc, falls back to gcc)
+make              # build (compiler auto-detected: tcc, then gcc, then cc)
+make CC=gcc       # force one compiler instead
 make test         # full validity matrix: info, canonicalization, plan,
                   # random (statistical), used networks, invalid inputs,
                   # edge cases, usage
@@ -200,9 +201,11 @@ Notes:
 - `vendor/sqlite3.c`, `vendor/sqlite3.h` — vendored SQLite
   amalgamation 3.54.1 from https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
   (public domain — free for any use, no attribution required); compiled
-  separately with `$(VCC)` (tcc today, gcc works too) and linked in, so the
-  only third-party dependency is vendored and there is nothing to
-  install.
+  separately with `$(VCC)`, which follows the auto-detected `$(CC)`
+  (tcc, then gcc, then `cc`), and tagged with it as
+  `vendor/sqlite3.<compiler>.o` so switching toolchains can never reuse a
+  stale object. Linked in, so the only third-party dependency is vendored
+  and there is nothing to install.
 
 Nothing links against `libdl`, `libpthread` or `libm`. The amalgamation is
 built with `SQLITE_THREADSAFE=0`, `SQLITE_OMIT_LOAD_EXTENSION` and

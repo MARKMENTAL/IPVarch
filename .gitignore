@@ -2,9 +2,9 @@
 schema_sql.c
 schema_sql.c.tmp
 
-# build artifacts
+# build artifacts (the vendor object name carries the compiler that built it)
 /ipvarch
-vendor/sqlite3.o
+vendor/sqlite3*.o
 
 # python bytecode cache (created when runner.py imports cases)
 __pycache__/
