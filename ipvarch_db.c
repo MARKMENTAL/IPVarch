@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* ipvarch_db.c - used-networks SQLite backend for IPVarch */
 #include <stdio.h>
 #include <stdlib.h>

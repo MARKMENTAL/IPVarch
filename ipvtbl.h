@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* ipvtbl.h - shared UTF-8 box-table rendering for IPVarch */
 #ifndef IPVTBL_H
 #define IPVTBL_H

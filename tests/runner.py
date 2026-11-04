@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
 """IPVarch test runner.
 
 Runs every case in cases.py against the IPVarch binary and checks

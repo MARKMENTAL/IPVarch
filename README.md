@@ -152,3 +152,27 @@ Notes:
   (public domain — free for any use, no attribution required); compiled separately with gcc and linked in, so the
   only third-party dependency is vendored and there is nothing to
   install.
+
+## License
+
+IPVarch — the program and its test suite (`ipvarch.c`, `ipvtbl.c`,
+`ipvtbl.h`, `ipvarch_db.c`, `ipvarch_db.h`, `tests/`) — is licensed
+under the GNU General Public License version 3 or (at your option) any
+later version; see the `LICENSE` file for the full text.
+
+Copyright © 2026 Mark Robillard Jr (MARKMENTAL)
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
+
+Notes on other material in this repository:
+
+- `vendor/sqlite3.c` and `vendor/sqlite3.h` are the public-domain
+  SQLite amalgamation and remain unmodified and public domain; linking
+  them imposes no license conditions and they are not covered by the
+  GPL notice above.
+- `ipaddrinfo.html` is retained reference material describing the rules
+  IPVarch implements; it is not part of the IPVarch source and not
+  covered by this license.

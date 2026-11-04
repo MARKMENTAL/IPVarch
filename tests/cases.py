@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
 """IPVarch test cases.
 
 Each case is a dict:

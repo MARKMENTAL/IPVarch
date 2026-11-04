@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-or-later */
 /* ipvarch_db.h - used-networks SQLite backend for IPVarch */
 #ifndef IPVARCH_DB_H
 #define IPVARCH_DB_H

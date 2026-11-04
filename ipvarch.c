@@ -1,4 +1,5 @@
 /*
+ * SPDX-License-Identifier: GPL-3.0-or-later
  * ipvarch.c - IPVarch: Internet Protocol Version Architect
  *
  * A small ANSI C (C89) command line tool for inspecting and planning
