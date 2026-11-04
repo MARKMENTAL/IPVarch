@@ -109,6 +109,50 @@ is registered. A database that cannot be opened is ignored with a
 stderr warning. Access is read-only for registration-free commands and
 read/write (creating the schema `UsedNetworks`) for register/forget.
 
+### Schema
+
+The table layout lives in `schema/used_networks.sql`, the single source
+of truth. The Makefile compiles it into the binary at build time (as
+the generated `schema_sql.c`) — a purely development convenience: the
+shipped binary stays self-contained, and changing the schema means
+editing the SQL file and rebuilding. It is created with `IF NOT
+EXISTS`, so re-opening an initialised database is a no-op:
+
+```sql
+CREATE TABLE IF NOT EXISTS UsedNetworks (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ cidr TEXT NOT NULL UNIQUE,
+ prefix INTEGER NOT NULL,
+ start_hi INTEGER NOT NULL,
+ start_lo INTEGER NOT NULL,
+ end_hi INTEGER NOT NULL,
+ end_lo INTEGER NOT NULL,
+ label TEXT NOT NULL,
+ created_at DATETIME DEFAULT CURRENT_TIMESTAMP)
+```
+
+Column reference:
+
+| Column | Meaning |
+|---|---|
+| `id` | autoincrement row key, present but unused by the tool logic |
+| `cidr` | canonical network text (`a.b.c.d/p`); `UNIQUE` — re-registering the same network fails here with a constraint violation (warning + exit 2) |
+| `prefix` | prefix length as registered (the registry accepts 0–32) |
+| `start_hi`, `start_lo` | first address of the covered range, split into two 16-bit halves |
+| `end_hi`, `end_lo` | last address of the covered range (network or-ed with the host bits) |
+| `label` | free-text label, max 64 characters, shown by `--list-networks` and the plan `Used by:` row |
+| `created_at` | registration timestamp (`CURRENT_TIMESTAMP` default) |
+
+Design notes:
+
+- The 32-bit network range is stored as two 16-bit `INTEGER` halves
+  instead of one 64-bit value: the C code computes addresses in
+  unsigned 32-bit math, and this split keeps the SQLite marshaling
+  explicit (`start_hi << 16 | start_lo` on the way out).
+- Overlap detection is plain interval intersection over `[start, end]`
+  performed in C (`scan_used`); the table needs no indexes or triggers
+  for correctness.
+
 ## Testing (Make + python3, stdlib only)
 
 ```sh

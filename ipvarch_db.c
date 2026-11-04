@@ -7,6 +7,11 @@
 #include "vendor/sqlite3.h"
 #include "ipvarch_db.h"
 
+/* Schema DDL for the UsedNetworks table: a NULL-terminated array of
+ * source lines, generated from schema/used_networks.sql by the
+ * Makefile (see schema_sql.c). */
+extern const char *ipvarch_schema_lines[];
+
 #define DB_PATH_SZ 640
 
 static sqlite3 *g_db = NULL;
@@ -113,18 +118,21 @@ static int db_do_open(int editable)
     }
 
     if (editable) {
-        if (sqlite3_exec(g_db,
-                "CREATE TABLE IF NOT EXISTS UsedNetworks ("
-                " id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                " cidr TEXT NOT NULL UNIQUE,"
-                " prefix INTEGER NOT NULL,"
-                " start_hi INTEGER NOT NULL,"
-                " start_lo INTEGER NOT NULL,"
-                " end_hi INTEGER NOT NULL,"
-                " end_lo INTEGER NOT NULL,"
-                " label TEXT NOT NULL,"
-                " created_at DATETIME DEFAULT CURRENT_TIMESTAMP)",
-                NULL, NULL, NULL) != SQLITE_OK) {
+        static char ddl[4096];       /* joined lines of the DDL */
+        int i;
+
+        ddl[0] = '\0';
+        for (i = 0; ipvarch_schema_lines[i] != NULL; i++) {
+            if (strlen(ddl) + strlen(ipvarch_schema_lines[i]) >= sizeof ddl) {
+                record_err("schema DDL exceeds buffer");
+                sqlite3_close(g_db);
+                g_db = NULL;
+                g_state = DB_IO;
+                return g_state;
+            }
+            strcat(ddl, ipvarch_schema_lines[i]);
+        }
+        if (sqlite3_exec(g_db, ddl, NULL, NULL, NULL) != SQLITE_OK) {
             record_err("create table");
             sqlite3_close(g_db);
             g_db = NULL;

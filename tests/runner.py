@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cases import GROUPS  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SAN_BIN = os.path.join("/tmp/opencode", "ipvarch-asan")
+SAN_BIN = os.path.join("/tmp/ipvarchtests", "ipvarch-asan")
 _usage_bin = None
 
 # ---------------------------------------------------------------- table
@@ -288,6 +288,14 @@ def build_sanitize(repo):
     san_dir = os.path.dirname(SAN_BIN)
     vendor_obj = os.path.join(san_dir, "sqlite3-asan.o")
 
+    # schema_sql.c is generated from schema/used_networks.sql by the
+    # Makefile; reuse that rule so there is one generator only.
+    schema_gen = os.path.join(repo, "schema_sql.c")
+    proc = subprocess.run(["make", "-s", "schema_sql.c"], cwd=repo,
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not os.path.exists(schema_gen):
+        return None, "schema generation failed:\n%s" % proc.stderr.strip()
+
     cmd = [cc, "-O1", "-g", "-fsanitize=address,undefined",
            "-fno-omit-frame-pointer", "-c",
            os.path.join(repo, "vendor", "sqlite3.c"), "-o", vendor_obj]
@@ -300,6 +308,7 @@ def build_sanitize(repo):
            os.path.join(repo, "ipvarch.c"),
            os.path.join(repo, "ipvarch_db.c"),
            os.path.join(repo, "ipvtbl.c"),
+           schema_gen,
            vendor_obj, "-o", SAN_BIN,
            "-lpthread", "-ldl", "-lm"]
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo)

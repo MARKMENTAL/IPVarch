@@ -1,4 +1,9 @@
-# Don't commit the binary or pycache (local-run only artifacts)
-ipvarch
-*.o
+# generated from schema/used_networks.sql by the Makefile
+schema_sql.c
+
+# build artifacts
+/ipvarch
+vendor/sqlite3.o
+
+# python bytecode cache (created when runner.py imports cases)
 __pycache__/

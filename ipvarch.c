@@ -885,7 +885,7 @@ static void mode_list_networks(void)
         rows[i + 1][1] = g_lrows[i].label;
         rows[i + 1][2] = g_lrows[i].created;
     }
-    print_table3("IPVarch Used Networks Database", rows, g_lrows_n + 1);
+    print_table3("IPVarch - UsedNetworks", rows, g_lrows_n + 1);
     if (g_lrows_overflow)
         printf("... (%d more networks not shown)\n", g_list_total - g_lrows_n);
     return;
