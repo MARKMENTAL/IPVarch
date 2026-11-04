@@ -17,6 +17,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from cases import GROUPS  # noqa: E402
@@ -61,6 +62,22 @@ def v_table_layout(out):
         if line.startswith("│") and "IPVarch Network Plan" not in line:
             if line.count("│") != 3:
                 return False, "malformed row: %r" % line
+    return True, ""
+
+
+def v_table3_layout(out):
+    """3-column list table: title kept plus rows must carry exactly 4 bars."""
+    have_row = False
+    for line in out.splitlines():
+        if not line.startswith("│"):
+            continue
+        if "Used Networks Database" in line:
+            continue
+        if line.count("│") != 4:
+            return False, "malformed row: %r" % line
+        have_row = True
+    if not have_row:
+        return False, "no table rows"
     return True, ""
 
 
@@ -202,6 +219,7 @@ VALIDATORS = {
     "plan": v_plan,
     "plan-gateway": v_plan,
     "table": v_table_layout,
+    "table3": v_table3_layout,
     "random-private": lambda out: _random_check(out, True),
     "random-public": lambda out: _random_check(out, False),
     "usage-examples": v_usage_examples,
@@ -240,6 +258,11 @@ def check_once(bin_path, case):
     for sub in case["must_not"]:
         if sub in out:
             return False, "output unexpectedly contains %r" % sub
+    ban = case.get("ban_network")
+    if ban:
+        rows, prefix = parse_table(out)
+        if rows.get("Network address") == ban:
+            return False, "generated registered network %s (must skip)" % ban
     if case["validator"]:
         ok, msg = VALIDATORS[case["validator"]](out)
         if not ok:
@@ -261,10 +284,24 @@ def build_sanitize(repo):
     cc = shutil.which("gcc") or shutil.which("clang")
     if cc is None:
         return None, "no ASan-capable compiler (gcc/clang) found"
+    san_dir = os.path.dirname(SAN_BIN)
+    vendor_obj = os.path.join(san_dir, "sqlite3-asan.o")
+
+    cmd = [cc, "-O1", "-g", "-fsanitize=address,undefined",
+           "-fno-omit-frame-pointer", "-c",
+           os.path.join(repo, "vendor", "sqlite3.c"), "-o", vendor_obj]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        return None, "sanitized sqlite build failed:\n%s" % proc.stderr.strip()
+
     cmd = [cc, "-std=c89", "-O1", "-g",
            "-fsanitize=address,undefined", "-fno-omit-frame-pointer",
-           os.path.join(repo, "ipvarch.c"), "-o", SAN_BIN]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+           os.path.join(repo, "ipvarch.c"),
+           os.path.join(repo, "ipvarch_db.c"),
+           os.path.join(repo, "ipvtbl.c"),
+           vendor_obj, "-o", SAN_BIN,
+           "-lpthread", "-ldl", "-lm"]
+    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo)
     if proc.returncode != 0:
         return None, "sanitized build failed:\n%s" % proc.stderr.strip()
     return SAN_BIN, None
@@ -278,10 +315,16 @@ def main():
                     help="rebuild with ASan+UBSan (gcc/clang) and rerun matrix")
     ap.add_argument("--filter", default=None,
                     help="only run groups/cases whose name contains this")
+    ap.add_argument("--keep-db", action="store_true",
+                    help="do not delete the temporary used-networks db")
     args = ap.parse_args()
 
     os.makedirs(os.path.dirname(SAN_BIN), exist_ok=True)
     memory = "not instrumented (run 'make test-sanitize' to enable)"
+
+    tmp_db_dir = tempfile.mkdtemp(prefix="ipvarch-tests-")
+    db_file = os.path.join(tmp_db_dir, "tests.db")
+    os.environ["IPVARCH_DB"] = db_file
 
     if args.sanitize:
         bin_path, err = build_sanitize(REPO)
@@ -329,6 +372,11 @@ def main():
     print("Summary: %d passed, %d failed  [binary: %s]" %
           (passed, failed, bin_path))
     print("         memory safety: %s" % memory)
+    print("         used networks db: %s" % db_file)
+    if args.keep_db:
+        print("         (kept for inspection: %s)" % tmp_db_dir)
+    else:
+        shutil.rmtree(tmp_db_dir, ignore_errors=True)
     return 1 if failed else 0
 
 

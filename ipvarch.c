@@ -19,20 +19,10 @@
 #include <stdarg.h>
 #include <time.h>
 
-typedef unsigned char byte;
+#include "ipvtbl.h"
+#include "ipvarch_db.h"
 
-/* UTF-8 encoded box drawing characters (U+2500 block). */
-#define BOX_H  "\xe2\x94\x80"   /* horizontal line */
-#define BOX_V  "\xe2\x94\x82"   /* vertical line   */
-#define BOX_TL "\xe2\x94\x8c"   /* top left     ┌ */
-#define BOX_TR "\xe2\x94\x90"   /* top right    ┐ */
-#define BOX_BL "\xe2\x94\x94"   /* bottom left  └ */
-#define BOX_BR "\xe2\x94\x98"   /* bottom right ┘ */
-#define BOX_TJ "\xe2\x94\xac"   /* top join     ┬ */
-#define BOX_BJ "\xe2\x94\xb4"   /* bottom join  ┴ */
-#define BOX_LJ "\xe2\x94\x9c"   /* left join    ├ */
-#define BOX_RJ "\xe2\x94\xa4"   /* right join   ┤ */
-#define BOX_CJ "\xe2\x94\xbc"   /* centre join  ┼ */
+typedef unsigned char byte;
 
 typedef const char *Row[2];
 
@@ -59,91 +49,19 @@ static void usage(void)
     printf("  ipvarch --plan-network <ipv4>/<prefix>     plan a network (/8 /16 /24 /32)\n");
     printf("  ipvarch --random-ipv4network <scope> <prefix>\n");
     printf("                                             random valid network plan\n\n");
+    printf("  ipvarch --use-network <cidr> <label>        register a used network\n");
+    printf("  ipvarch --list-networks                     list registered networks\n");
+    printf("  ipvarch --forget-network <cidr>             unregister a network\n\n");
     printf("Examples:\n");
     printf("  ipvarch 192.168.1.1\n");
     printf("  ipvarch 2001:db8::1\n");
     printf("  ipvarch --plan-network 172.16.0.0/16\n");
     printf("  ipvarch --random-ipv4network private /24\n");
+    printf("  ipvarch --use-network 10.164.0.0/16 \"Main Homelab Bridge\"\n");
+    printf("  ipvarch --list-networks\n");
     return;
 }
 
-/* Display width of a UTF-8 string (continuation bytes occupy no column). */
-static int dwidth(const char *s)
-{
-    int w = 0;
-    while (*s != '\0') {
-        if ((((unsigned char)*s) & 0xC0) != 0x80)
-            w++;
-        s++;
-    }
-    return w;
-}
-
-static void dashes(int n)
-{
-    while (n-- > 0)
-        fputs(BOX_H, stdout);
-    return;
-}
-
-static void padcell(const char *s, int w)
-{
-    int d = dwidth(s) + 1;
-    putchar(' ');
-    fputs(s, stdout);
-    while (d < w) {
-        putchar(' ');
-        d++;
-    }
-    return;
-}
-
-static void centercell(const char *s, int w)
-{
-    int d = dwidth(s) + 1;
-    int l = (w - d) / 2;
-    int r = w - d - l;
-    while (l-- > 0)
-        putchar(' ');
-    putchar(' ');
-    fputs(s, stdout);
-    while (r-- > 0)
-        putchar(' ');
-    return;
-}
-
-static void print_table(const char *title, const char *rows[][2], int nrows)
-{
-    int w1 = 0, w2 = 0, tw, i;
-
-    for (i = 0; i < nrows; i++) {
-        int a = dwidth(rows[i][0]) + 2;   /* room for cell padding */
-        int b = dwidth(rows[i][1]) + 2;
-        if (a > w1) w1 = a;
-        if (b > w2) w2 = b;
-    }
-    tw = dwidth(title) + 2;
-    if (tw > w1 + w2 - 1)
-        w2 = tw - w1 + 1;
-
-    fputs(BOX_TL, stdout); dashes(w1); fputs(BOX_TJ, stdout);
-    dashes(w2); fputs(BOX_TR "\n", stdout);
-
-    fputs(BOX_V, stdout); centercell(title, w1 + w2 + 1); fputs(BOX_V "\n", stdout);
-
-    fputs(BOX_LJ, stdout); dashes(w1); fputs(BOX_CJ, stdout);
-    dashes(w2); fputs(BOX_RJ "\n", stdout);
-
-    for (i = 0; i < nrows; i++) {
-        fputs(BOX_V, stdout); padcell(rows[i][0], w1);
-        fputs(BOX_V, stdout); padcell(rows[i][1], w2);
-        fputs(BOX_V "\n", stdout);
-    }
-
-    fputs(BOX_BL, stdout); dashes(w1); fputs(BOX_BJ, stdout);
-    dashes(w2); fputs(BOX_BR "\n", stdout);
-    return;
-}
 
 /* ------------------------------------------------------------------ */
 /* Parsing                                                             */
@@ -484,7 +402,7 @@ static void u32_to_v4(unsigned long u, byte out[4])
     return;
 }
 
-static void print_plan(unsigned long net, int prefix)
+static void print_plan(unsigned long net, int prefix, const char *usedby)
 {
     unsigned long mask, bc, cnt, firstu, lastu;
     byte a[4], m4[4], b4[4], lo4[4], hi4[4];
@@ -492,7 +410,7 @@ static void print_plan(unsigned long net, int prefix)
     char nb[24], mb[40], bb[24], rb[64], cb[24], gb[24], db[24], pb[64];
     char sb[48], tb[80];
     const char *cls, *scope;
-    Row rows[10];
+    Row rows[11];
     int nr = 0;
 
     mask = (prefix == 8)  ? 0xFF000000ul :
@@ -553,6 +471,9 @@ static void print_plan(unsigned long net, int prefix)
     rows[nr][0] = "Gateway IP";        rows[nr][1] = gb; nr++;
     rows[nr][0] = "DNS/DHCP server";   rows[nr][1] = db; nr++;
     rows[nr][0] = "DHCP pool";         rows[nr][1] = pb; nr++;
+    if (usedby != NULL && usedby[0] != '\0') {
+        rows[nr][0] = "Used by";       rows[nr][1] = usedby; nr++;
+    }
 
     print_table(tb, rows, nr);
     return;
@@ -698,13 +619,25 @@ static void mode_info(const char *arg)
     return;
 }
 
-static void mode_plan(const char *arg)
+/* 32-bit network mask for the four supported plan prefixes. */
+static unsigned long mask_of_prefix(int prefix)
+{
+    if (prefix == 0)  return 0UL;
+    if (prefix <= 8)  return 0xFF000000UL;
+    if (prefix <= 16) return 0xFFFF0000UL;
+    if (prefix <= 24) return 0xFFFFFF00UL;
+    return 0xFFFFFFFFUL;
+}
+
+/* Parse "<ipv4>/<0-32>" and canonicalize; dies on error, including
+ * host bits set (the message names the canonical network address). */
+static void parse_network_arg(const char *arg, unsigned long *net,
+                              int *prefix, int plan_only)
 {
     char buf[80];
     char *slash;
     byte a[4];
-    unsigned long u, mask, net;
-    int prefix;
+    unsigned long u, mask;
 
     if (strlen(arg) >= sizeof(buf) - 1)
         die("argument too long: %s", arg);
@@ -718,28 +651,66 @@ static void mode_plan(const char *arg)
     if (!parse_ipv4(buf, a))
         die("invalid IPv4 address in subnet: %s", buf);
 
-    prefix = atoi(slash + 1);
-    if (prefix != 8 && prefix != 16 && prefix != 24 && prefix != 32)
-        die("unsupported prefix '%s' (supported: /8 /16 /24 /32)", slash + 1);
+    *prefix = atoi(slash + 1);
+    if (*prefix < 0 || *prefix > 32)
+        die("invalid prefix '%s' (expected a value of 0-32)", slash + 1);
 
-    mask = (prefix == 8)  ? 0xFF000000ul :
-           (prefix == 16) ? 0xFFFF0000ul :
-           (prefix == 24) ? 0xFFFFFF00ul : 0xFFFFFFFFul;
-    u = v4_to_u32(a);
-    net = u & mask;
-
-    if (net != u) {
-        byte c[4];
-        u32_to_v4(net, c);
-        die("host bits are set; the network address for that mask is %u.%u.%u.%u/%d",
-            (unsigned)c[0], (unsigned)c[1], (unsigned)c[2], (unsigned)c[3], prefix);
+    if (plan_only && *prefix != 8 && *prefix != 16 &&
+        *prefix != 24 && *prefix != 32) {
+        char pbuf[16];
+        sprintf(pbuf, "/%d", *prefix);
+        die("unsupported prefix '%s' (supported: /8 /16 /24 /32)", pbuf);
     }
-    if (a[0] == 0)
-        die("0.0.0.0 networks are reserved and cannot be planned");
-    if (a[0] >= 224)
-        die("multicast and reserved networks (class D/E) cannot be planned");
 
-    print_plan(net, prefix);
+    mask = mask_of_prefix(*prefix);
+    u = v4_to_u32(a);
+    *net = u & mask;
+
+    if (*net != u) {
+        byte c[4];
+        u32_to_v4(*net, c);
+        die("host bits are set; the network address for that mask is %u.%u.%u.%u/%d",
+            (unsigned)c[0], (unsigned)c[1], (unsigned)c[2], (unsigned)c[3],
+            *prefix);
+    }
+}
+
+/* Canonical "<ipv4>/<prefix>" rendering of a parsed network. */
+static void canonical_cidr(unsigned long net, int prefix, char *dst)
+{
+    byte a[4];
+
+    u32_to_v4(net, a);
+    fmt_v4(dst, a);
+    sprintf(dst + strlen(dst), "/%d", prefix);
+}
+
+static void mode_plan(const char *arg)
+{
+    char used[200];
+    unsigned long net;
+    int prefix;
+
+    parse_network_arg(arg, &net, &prefix, 1);
+    {
+        byte a[4];
+        u32_to_v4(net, a);
+        if (a[0] == 0)
+            die("0.0.0.0 networks are reserved and cannot be planned");
+        if (a[0] >= 224)
+            die("multicast and reserved networks (class D/E) cannot be planned");
+    }
+
+    used[0] = '\0';
+    if (db_init(0) == DB_IO)
+        fprintf(stderr, "ipvarch: warning: used-networks database ignored: %s\n",
+                db_last_error());
+    else if (db_used_by_plan(net, net | (0xFFFFFFFFUL ^ mask_of_prefix(prefix)),
+                             used, (int)sizeof used) == DB_IO)
+        fprintf(stderr, "ipvarch: warning: used-networks database ignored: %s\n",
+                db_last_error());
+
+    print_plan(net, prefix, used);
     return;
 }
 
@@ -748,7 +719,8 @@ static void mode_random(const char *scope_s, const char *prefix_s)
     char lc[16];
     const char *p;
     byte net[4];
-    int prefix, priv;
+    unsigned long u, mask;
+    int prefix, priv, ov, tries;
     char *q;
 
     if (strlen(scope_s) >= sizeof(lc))
@@ -772,11 +744,149 @@ static void mode_random(const char *scope_s, const char *prefix_s)
         die("unsupported prefix '/%s' (supported: /8 /16 /24 /32)", prefix_s);
 
     srand((unsigned)time(NULL));
-    random_network(prefix, priv, net);
+    if (db_init(0) == DB_IO)
+        fprintf(stderr, "ipvarch: warning: used-networks database ignored: %s\n",
+                db_last_error());
 
     printf("Random network plan (--random-ipv4network %s /%d)\n\n",
            priv ? "private" : "public", prefix);
-    print_plan(v4_to_u32(net), prefix);
+
+    mask = mask_of_prefix(prefix);
+    for (tries = 0; tries < 10000; tries++) {
+        random_network(prefix, priv, net);
+        u = v4_to_u32(net);
+        ov = db_overlaps_any(u, u | (0xFFFFFFFFUL ^ mask));
+        if (ov == DB_IO)
+            die("database error: %s", db_last_error());
+        if (ov == 0) {
+            print_plan(u, prefix, NULL);
+            return;
+        }
+    }
+    die("no free network available for %s /%d after 10000 attempts",
+        priv ? "private" : "public", prefix);
+    return;
+}
+
+/* ------------------------------------------------------------------ */
+/* Used-networks database modes                                        */
+/* ------------------------------------------------------------------ */
+
+#define LIST_MAX 512
+
+static struct {
+    char cidr[24];
+    char label[80];
+    char created[24];
+} g_lrows[LIST_MAX];
+static int g_lrows_n = 0;
+static int g_lrows_overflow = 0;
+static int g_list_total = 0;
+
+static void list_row_cb(const char *cidr, const char *label,
+                        const char *created)
+{
+    if (g_lrows_n >= LIST_MAX) {
+        g_lrows_overflow = 1;
+        return;
+    }
+    strcpy(g_lrows[g_lrows_n].cidr, cidr);
+    strcpy(g_lrows[g_lrows_n].label, label);
+    strcpy(g_lrows[g_lrows_n].created, created);
+    g_lrows_n++;
+}
+
+static void die_db(const char *context)
+{
+    die("%s: %s (database: %s)", context, db_last_error(),
+        (db_path()[0] != '\0') ? db_path() : "(unresolved)");
+}
+
+static void mode_use_network(const char *cidr, const char *label)
+{
+    unsigned long net;
+    int prefix, rc;
+    char canon[24];
+
+    if (label[0] == '\0')
+        die("empty label");
+    if (strlen(label) > DB_LABEL_MAX)
+        die("label too long (max %d characters)", DB_LABEL_MAX);
+
+    parse_network_arg(cidr, &net, &prefix, 0);
+    canonical_cidr(net, prefix, canon);
+
+    if (db_init(1) != DB_OK)
+        die_db("cannot open used-networks database");
+
+    rc = db_add_network(net, prefix, canon, label);
+    if (rc == DB_DUPLICATE) {
+        char existing[80];
+        existing[0] = '\0';
+        if (db_get_label(canon, existing, (int)sizeof existing) != DB_OK)
+            existing[0] = '\0';
+        fprintf(stderr,
+                "warning: network %s is already registered as \"%s\"\n",
+                canon, existing);
+        exit(2);
+    }
+    if (rc != DB_OK)
+        die_db("cannot register network");
+    printf("Registered %s as \"%s\" in %s\n", canon, label, db_path());
+}
+
+static void mode_forget_network(const char *cidr)
+{
+    unsigned long net;
+    int prefix, rc;
+    char canon[24], existing[80];
+
+    parse_network_arg(cidr, &net, &prefix, 0);
+    canonical_cidr(net, prefix, canon);
+
+    if (db_init(1) != DB_OK)
+        die_db("cannot open used-networks database");
+
+    rc = db_forget_network(canon, existing, (int)sizeof existing);
+    if (rc == DB_NOT_FOUND) {
+        fprintf(stderr, "warning: network %s is not registered\n", canon);
+        exit(2);
+    }
+    if (rc != DB_OK)
+        die_db("cannot forget network");
+    printf("Removed %s (was \"%s\")\n", canon, existing);
+}
+
+static void mode_list_networks(void)
+{
+    const char *rows[LIST_MAX + 1][3];
+    int i, rc;
+
+    if (db_init(0) == DB_IO)
+        die_db("cannot open used-networks database");
+    if (db_count(&g_list_total) != DB_OK)
+        die_db("cannot read used-networks database");
+    if (g_list_total == 0) {
+        printf("No networks registered yet.\n");
+        printf("Add one with: ipvarch --use-network <cidr> <label>\n");
+        return;
+    }
+
+    rc = db_list_networks(&list_row_cb);
+    if (rc != DB_OK)
+        die_db("cannot read used-networks database");
+
+    rows[0][0] = "CIDR";
+    rows[0][1] = "Label";
+    rows[0][2] = "Registered";
+    for (i = 0; i < g_lrows_n; i++) {
+        rows[i + 1][0] = g_lrows[i].cidr;
+        rows[i + 1][1] = g_lrows[i].label;
+        rows[i + 1][2] = g_lrows[i].created;
+    }
+    print_table3("IPVarch Used Networks Database", rows, g_lrows_n + 1);
+    if (g_lrows_overflow)
+        printf("... (%d more networks not shown)\n", g_list_total - g_lrows_n);
     return;
 }
 
@@ -798,6 +908,24 @@ int main(int argc, char **argv)
         if (argc != 4)
             die("--random-ipv4network takes two arguments: <private|public> </8|/16|/24|/32>");
         mode_random(argv[2], argv[3]);
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--use-network") == 0) {
+        if (argc != 4)
+            die("--use-network takes two arguments: <cidr> <label>");
+        mode_use_network(argv[2], argv[3]);
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--list-networks") == 0) {
+        if (argc != 2)
+            die("--list-networks takes no arguments");
+        mode_list_networks();
+        return 0;
+    }
+    if (argc >= 2 && strcmp(argv[1], "--forget-network") == 0) {
+        if (argc != 3)
+            die("--forget-network takes exactly one argument: <cidr>");
+        mode_forget_network(argv[2]);
         return 0;
     }
     if (argc == 2) {

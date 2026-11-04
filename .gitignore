@@ -1,3 +1,4 @@
 # Don't commit the binary or pycache (local-run only artifacts)
 ipvarch
+*.o
 __pycache__/
