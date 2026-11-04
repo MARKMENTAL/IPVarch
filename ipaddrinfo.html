@@ -1,0 +1,114 @@
+<div>
+  <h3>Understanding IP Addresses</h3>
+  <!-- IPv4 Education -->
+  <div>
+    <h4>IPv4 Address Format</h4>
+    <div>
+      <p>
+        IPv4 addresses consist of four octets (numbers from 0-255) separated by dots. 
+        Each octet represents 8 bits, making IPv4 addresses 32 bits total.
+      </p>
+      <div>
+        <h5>IPv4 Address Classes:</h5>
+        <ul>
+          <li><strong>Class A:</strong> <span>1.0.0.0 - 126.255.255.255</span> (Large networks)</li>
+          <li><strong>Class B:</strong> <span>128.0.0.0 - 191.255.255.255</span> (Medium networks)</li>
+          <li><strong>Class C:</strong> <span>192.0.0.0 - 223.255.255.255</span> (Small networks)</li>
+          <li><strong>Class D:</strong> <span>224.0.0.0 - 239.255.255.255</span> (Multicast)</li>
+          <li><strong>Class E:</strong> <span>240.0.0.0 - 255.255.255.255</span> (Reserved)</li>
+        </ul>
+      </div>
+      <div>
+        <h5>Private IP Ranges:</h5>
+        <ul>
+          <li><code>10.0.0.0/8</code> - <span>10.0.0.0 to 10.255.255.255</span></li>
+          <li><code>172.16.0.0/12</code> - <span>172.16.0.0 to 172.31.255.255</span></li>
+          <li><code>192.168.0.0/16</code> - <span>192.168.0.0 to 192.168.255.255</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- IPv6 Education -->
+  <div>
+    <h4>IPv6 Address Format</h4>
+    <div>
+      <p>
+        IPv6 addresses are 128 bits long and written as eight groups of four hexadecimal digits, 
+        separated by colons. They can be compressed using double colons (::) to represent consecutive zeros.
+      </p>
+      <div>
+        <h5>IPv6 Address Types:</h5>
+        <ul>
+          <li><strong>Unicast:</strong> Identifies a single interface</li>
+          <li><strong>Multicast:</strong> Identifies multiple interfaces (starts with ff)</li>
+          <li><strong>Link-Local:</strong> Used on single network segment (fe80::/10)</li>
+          <li><strong>Unique Local:</strong> Private addresses (fc00::/7)</li>
+        </ul>
+      </div>
+      <div>
+        <h5>IPv6 Notation Examples:</h5>
+        <ul>
+          <li><strong>Full:</strong> <code>2001:0db8:0000:0000:0000:0000:0000:0001</code></li>
+          <li><strong>Compressed:</strong> <code>2001:db8::1</code></li>
+          <li><strong>Mixed:</strong> <code>2001:db8::192.168.1.1</code></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <!-- Common Examples -->
+  <div>
+    <h4>Try These Examples</h4>
+    <div>
+      <div>
+        <h5>Valid IPv4 Addresses</h5>
+        <ul>
+          <li>
+            <button type="button">
+              192.168.1.1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              10.0.0.1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              172.16.254.1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              8.8.8.8
+            </button>
+          </li>
+        </ul>
+      </div>
+      <div>
+        <h5>Valid IPv6 Addresses</h5>
+        <ul>
+          <li>
+            <button type="button">
+              2001:db8::1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              fe80::1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              ::1
+            </button>
+          </li>
+          <li>
+            <button type="button">
+              2001:db8::192.168.1.1
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
