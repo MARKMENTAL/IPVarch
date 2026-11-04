@@ -202,5 +202,7 @@ GROUPS = [
         case("--help", ["--help"], must=["Usage:"]),
         case("help", ["help"], must=["Usage:"]),
         case("no arguments", [], exit=1, must=["Usage:"]),
+        case("usage examples are plannable", ["--help"],
+             validator="usage-examples"),
     ]),
 ]

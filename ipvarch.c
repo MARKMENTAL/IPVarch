@@ -62,7 +62,7 @@ static void usage(void)
     printf("Examples:\n");
     printf("  ipvarch 192.168.1.1\n");
     printf("  ipvarch 2001:db8::1\n");
-    printf("  ipvarch --plan-network 172.16.4.0/16\n");
+    printf("  ipvarch --plan-network 172.16.0.0/16\n");
     printf("  ipvarch --random-ipv4network private /24\n");
     return;
 }

@@ -23,6 +23,7 @@ from cases import GROUPS  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SAN_BIN = os.path.join("/tmp/opencode", "ipvarch-asan")
+_usage_bin = None
 
 # ---------------------------------------------------------------- table
 
@@ -178,12 +179,32 @@ def _random_check(out, want_private):
     return True, ""
 
 
+def v_usage_examples(out):
+    """Every <addr>/<prefix> example in usage output must be planned OK
+    when fed back to the binary."""
+    bin_path = _usage_bin
+    rows = []
+    for m in re.finditer(r"(\d{1,3}(?:\.\d{1,3}){3})/(\d+)", out):
+        rows.append((m.group(1), int(m.group(2))))
+    if not rows:
+        return False, "usage shows no <addr>/<prefix> examples"
+    for net, prefix in rows:
+        rc, out2, err2 = run_bin(bin_path, ["--plan-network",
+                                            "%s/%d" % (net, prefix)])
+        if rc != 0 or "IPVarch Network Plan" not in out2:
+            return False, ("usage example %s/%d is not a plannable network "
+                           "(exit=%d, stderr=%r)" %
+                           (net, prefix, rc, err2.strip()))
+    return True, ""
+
+
 VALIDATORS = {
     "plan": v_plan,
     "plan-gateway": v_plan,
     "table": v_table_layout,
     "random-private": lambda out: _random_check(out, True),
     "random-public": lambda out: _random_check(out, False),
+    "usage-examples": v_usage_examples,
 }
 
 # ---------------------------------------------------------------- run
@@ -250,6 +271,7 @@ def build_sanitize(repo):
 
 
 def main():
+    global _usage_bin
     ap = argparse.ArgumentParser(description="IPVarch test runner")
     ap.add_argument("--bin", default=os.path.join(REPO, "ipvarch"))
     ap.add_argument("--sanitize", action="store_true",
@@ -270,6 +292,8 @@ def main():
     else:
         bin_path = args.bin
 
+    _usage_bin = bin_path
+
     if not os.path.exists(bin_path):
         print("error: binary not found: %s (run 'make' first)" % bin_path,
               file=sys.stderr)
@@ -280,7 +304,8 @@ def main():
     ran_any = False
 
     for gname, cases in GROUPS:
-        if args.filter and args.filter not in gname:
+        if args.filter and args.filter not in gname and \
+           not any(args.filter in case["name"] for case in cases):
             continue
         print("== %s ==" % gname)
         for case in cases:
