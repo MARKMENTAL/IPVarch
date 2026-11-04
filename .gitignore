@@ -1,5 +1,6 @@
 # generated from schema/used_networks.sql by the Makefile
 schema_sql.c
+schema_sql.c.tmp
 
 # build artifacts
 /ipvarch

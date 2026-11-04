@@ -115,7 +115,13 @@ The table layout lives in `schema/used_networks.sql`, the single source
 of truth. The Makefile compiles it into the binary at build time (as
 the generated `schema_sql.c`) — a purely development convenience: the
 shipped binary stays self-contained, and changing the schema means
-editing the SQL file and rebuilding. It is created with `IF NOT
+editing the SQL file and rebuilding. Only the live statements are
+embedded: leading `--` comments and blank lines stay in the file for
+readers and are dropped from the generated array, which also keeps the
+embedded SQL free of double quotes so C escaping can never be the weak
+point of a build. The generated file is refreshed whenever the SQL file
+*or* the Makefile changes, so an edited generator can't be undone by a
+stale artifact. It is created with `IF NOT
 EXISTS`, so re-opening an initialised database is a no-op:
 
 ```sql
@@ -193,9 +199,25 @@ Notes:
 - `ipvarch_db.c/.h` — used-networks SQLite backend.
 - `vendor/sqlite3.c`, `vendor/sqlite3.h` — vendored SQLite
   amalgamation 3.54.1 from https://www.sqlite.org/2026/sqlite-amalgamation-3540100.zip
-  (public domain — free for any use, no attribution required); compiled separately with gcc and linked in, so the
+  (public domain — free for any use, no attribution required); compiled
+  separately with `$(VCC)` (tcc today, gcc works too) and linked in, so the
   only third-party dependency is vendored and there is nothing to
   install.
+
+Nothing links against `libdl`, `libpthread` or `libm`. The amalgamation is
+built with `SQLITE_THREADSAFE=0`, `SQLITE_OMIT_LOAD_EXTENSION` and
+`SQLITE_OMIT_FLOATING_POINT` (the `SQL_DEFS` variable in the Makefile),
+which removes every reference those libraries would otherwise serve —
+`fabs` is the only math symbol SQLite needs at all. So the binary depends
+on `libc` alone, which is what lets a tcc-only Buildroot box build it:
+glibc 2.34 and later folded `dl` and `pthread` into `libc` anyway, minimal
+distributions often ship no dev libraries at all, and tcc aborts the entire
+link when a `-l` flag cannot be satisfied. Nothing IPVarch uses is given
+up: the registry stores INTEGER and TEXT and never REAL, and the tool is
+single-threaded. If a future schema needs `REAL` columns or `%f` in
+`sqlite3_mprintf`, drop the last define and add `-lm` back. `make check`,
+the schema generator and the sanitizer runner all read the same flags from
+the Makefile, so no build path can drift out of configuration.
 
 ### Code style
 

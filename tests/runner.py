@@ -306,21 +306,32 @@ def build_sanitize(repo):
     if proc.returncode != 0 or not os.path.exists(schema_gen):
         return None, "schema generation failed:\n%s" % proc.stderr.strip()
 
+    # The Makefile owns the SQLite embedder defines (SQL_DEFS); ask it for
+    # them instead of duplicating the list, so the sanitized build can never
+    # end up configured differently from the real one.  With those defines
+    # the amalgamation references no dlopen/pthread/fabs symbol, so no -l
+    # flags are needed here -- and minimal systems may not even have libdl,
+    # libpthread or libm available to link.
+    proc = subprocess.run(["make", "-s", "print-flags"], cwd=repo,
+                          capture_output=True, text=True)
+    sql_defs = [f for f in proc.stdout.split() if f.startswith("-D")]
+    if proc.returncode != 0 or not sql_defs:
+        return None, "make print-flags failed:\n%s" % proc.stderr.strip()
+
     cmd = [cc, "-O1", "-g", "-fsanitize=address,undefined",
-           "-fno-omit-frame-pointer", "-c",
-           os.path.join(repo, "vendor", "sqlite3.c"), "-o", vendor_obj]
+           "-fno-omit-frame-pointer"] + sql_defs + [
+           "-c", os.path.join(repo, "vendor", "sqlite3.c"), "-o", vendor_obj]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         return None, "sanitized sqlite build failed:\n%s" % proc.stderr.strip()
 
     cmd = [cc, "-std=c89", "-O1", "-g",
-           "-fsanitize=address,undefined", "-fno-omit-frame-pointer",
+           "-fsanitize=address,undefined", "-fno-omit-frame-pointer"] + sql_defs + [
            os.path.join(repo, "ipvarch.c"),
            os.path.join(repo, "ipvarch_db.c"),
            os.path.join(repo, "ipvtbl.c"),
            schema_gen,
-           vendor_obj, "-o", SAN_BIN,
-           "-lpthread", "-ldl", "-lm"]
+           vendor_obj, "-o", SAN_BIN]
     proc = subprocess.run(cmd, capture_output=True, text=True, cwd=repo)
     if proc.returncode != 0:
         return None, "sanitized build failed:\n%s" % proc.stderr.strip()
